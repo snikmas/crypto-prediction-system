@@ -41,10 +41,23 @@ def fetch_daily_data():
       
       res.raise_for_status()
       res = res.json()
-      data[coin] = res["Data"][coin]
+
+      coin_data = {}
+      for coin_info in res["Data"]["Data"]:
+        coin_data = {
+          "open": coin_info["open"],
+          "high": coin_info["high"],
+          "low": coin_info["low"],
+          "close": coin_info["close"],
+          "volume": coin_info["volumefrom"],
+          "timestamp": coin_info["time"]
+        }
+
+        
+      data[coin] = coin_data
 
       logging.debug(f"Fetched data for {coin}: {data[coin]}")
-
+      return data 
     return data
   except (ConnectionError, requests.Timeout, requests.TooManyRedirects) as e:
     logging.error(f"Connection error: {e}")

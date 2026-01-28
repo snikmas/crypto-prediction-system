@@ -5,21 +5,15 @@ from pathlib import Path
 import logging
 from fetchers import fetch_daily_data
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 
 def create_connection(db_name, user, password, host, port):
-    """
-    Create and return a connection to the PostgreSQL database.
-    
-    Parameters:
-    - db_name: Name of the database.
-    - user: Username for authentication.
-    - password: Password for authentication.
-    - host: Database host address (default is 'localhost').
-    - port: Connection port number (default is 5432).
-    
-    Returns:
-    - A connection object to the PostgreSQL database.
-    """
+
     try:
         connection = psycopg2.connect(
             dbname=db_name,
@@ -35,16 +29,18 @@ def create_connection(db_name, user, password, host, port):
     
 def create_table(connection):
     create_table_query = """
-    CREATE TABLE IF NOT EXISTS  (
-        symbol TEXT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS ohlcv_data (
+        symbol TEXT UNIQUE NOT NULL,
         open FLOAT,
         high FLOAT,
         low FLOAT,
         close FLOAT,
         volume FLOAT,
-        timestamp TIMESTAMP
+        timestamp TIMESTAMP,
+        PRIMARY KEY (symbol)
     );
     """
+
     cursor = connection.cursor()
     try:
         cursor.execute(create_table_query)
@@ -59,7 +55,7 @@ def create_table(connection):
 
 def add_data_query(connection, data):
     insert_query = """
-    INSERT INTO  (symbol, open, high, low, close, volume, timestamp)
+    INSERT INTO ohlcv_data (symbol, open, high, low, close, volume, timestamp)
     VALUES (%s, %s, %s, %s, %s, %s, to_timestamp(%s))
     ON CONFLICT (symbol) DO UPDATE SET
         open = EXCLUDED.open,
@@ -71,17 +67,22 @@ def add_data_query(connection, data):
     """
     cursor = connection.cursor()
     try:
-        for symbol, values in data.items():
+        logging.info("type of data and symbol: ")
+
+        for key, value in data.items():
+            print(value)
             cursor.execute(insert_query, (
-                symbol,
-                values['open'],
-                values['high'],
-                values['low'],
-                values['close'],
-                values['volume'],
-                values['timestamp']
+                key,
+                value['open'],
+                value['high'],
+                value['low'],
+                value['close'],
+                value['volume'],
+                value['timestamp']
             ))
         connection.commit()
+        print("commited")
+
         logging.info("Data inserted/updated successfully.")
     except psycopg2.Error as e:
         logging.error(f"Error inserting/updating data: {e}")
@@ -99,6 +100,14 @@ connection = create_connection(os.getenv('PSQL_DB'),
                   os.getenv('PSQL_HOST'), 
                   os.getenv('PSQL_PORT'))
 
-data = fetch_daily_data
-create_table(connection)
-add_data_query(connection, data)
+logging.basicConfig(level=logging.INFO)
+if connection:
+    data = fetch_daily_data()
+    if data:
+        create_table(connection)
+        add_data_query(connection, data)
+        connection.close()
+    else:
+        logging.error("No data fetched")
+else:
+    logging.error("Failed to connect to database")
