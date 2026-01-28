@@ -5,3 +5,6 @@ __pycache__/
 *.log
 myenv
 notes.txt
+.vscode/
+available_coin_list.txt
+coin_list.py
