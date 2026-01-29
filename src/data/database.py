@@ -12,7 +12,13 @@ logging.basicConfig(
 )
 
 
-def create_connection(db_name, user, password, host, port):
+def create_connection():
+
+    db_name = os.getenv('PSQL_DB')
+    user = os.getenv('PSQL_USER')
+    password = os.getenv('PSQL_PASSWORD')
+    host = os.getenv('PSQL_HOST')
+    port = os.getenv('PSQL_PORT')
 
     try:
         connection = psycopg2.connect(
@@ -109,11 +115,7 @@ def insert_data(connection, data):
 env_path = Path(__file__).resolve().parents[2] / 'config' / '.env'
 load_dotenv(dotenv_path=env_path)
 
-connection = create_connection(os.getenv('PSQL_DB'), 
-                  os.getenv('PSQL_USER'), 
-                  os.getenv('PSQL_PASSWORD'), 
-                  os.getenv('PSQL_HOST'), 
-                  os.getenv('PSQL_PORT'))
+connection = create_connection()
 
 
 if connection:
