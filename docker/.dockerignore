@@ -1,0 +1,10 @@
+__pycache__/
+.env
+*.pyc
+.pytest_cache/
+*.log
+myenv
+notes.txt
+.vscode/
+available_coin_list.txt
+coin_list.py

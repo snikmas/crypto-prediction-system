@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 import logging
-from fetchers import fetch_daily_data
+from fetchers import fetch_hourly_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,20 +24,22 @@ def create_connection(db_name, user, password, host, port):
         )
         return connection
     except psycopg2.Error as e:
-        print(f"Error connecting to database: {e}")
+        logging.error(f"Error connecting to database: {e}")
         return None
     
-def create_table(connection):
+def create_hourly_table(connection):
+
     create_table_query = """
-    CREATE TABLE IF NOT EXISTS ohlcv_data (
-        symbol TEXT UNIQUE NOT NULL,
-        open FLOAT,
-        high FLOAT,
-        low FLOAT,
-        close FLOAT,
-        volume FLOAT,
-        timestamp TIMESTAMP,
-        PRIMARY KEY (symbol)
+    CREATE TABLE IF NOT EXISTS hourly_ohlcv (
+        symbol TEXT NOT NULL,
+        timestamp BIGINT NOT NULL,
+        open DECIMAL(20, 8) NOT NULL,
+        high DECIMAL(20, 8) NOT NULL,
+        low DECIMAL(20, 8) NOT NULL,
+        close DECIMAL(20, 8) NOT NULL,
+        volume DECIMAL(20, 8) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (symbol, timestamp)
     );
     """
 
@@ -45,48 +47,61 @@ def create_table(connection):
     try:
         cursor.execute(create_table_query)
         connection.commit()
-        logging.info("Table created successfully.")
+        logging.info("Table created/verified successfully")
+        return True
     except psycopg2.Error as e:
         logging.error(f"Error creating table: {e}")
         connection.rollback()
+        return False
     finally:
         cursor.close()
     
 
-def add_data_query(connection, data):
+def insert_data(connection, data):
+
+    if data is None:
+        logging.error("No data to insert")
+        return False
+
+
     insert_query = """
-    INSERT INTO ohlcv_data (symbol, open, high, low, close, volume, timestamp)
-    VALUES (%s, %s, %s, %s, %s, %s, to_timestamp(%s))
-    ON CONFLICT (symbol) DO UPDATE SET
-        open = EXCLUDED.open,
-        high = EXCLUDED.high,
-        low = EXCLUDED.low,
-        close = EXCLUDED.close,
-        volume = EXCLUDED.volume,
-        timestamp = EXCLUDED.timestamp;
+        INSERT INTO hourly_ohlcv (symbol, timestamp, open, high, low, close, volume)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (symbol, timestamp) DO NOTHING;
     """
+
+
     cursor = connection.cursor()
+    logging.info("Inserting data...")
     try:
-        logging.info("type of data and symbol: ")
 
-        for key, value in data.items():
-            print(value)
-            cursor.execute(insert_query, (
-                key,
-                value['open'],
-                value['high'],
-                value['low'],
-                value['close'],
-                value['volume'],
-                value['timestamp']
-            ))
+        rows = []
+        for coin, records in data.items():
+            for record in records:
+                rows.append((
+                    coin,
+                    record['timestamp'],
+                    record['open'],
+                    record['high'],
+                    record['low'],
+                    record['close'],
+                    record['volume']
+                ))
+
+        # Single batch insert
+                # Batch insert
+        cursor.executemany(insert_query, rows)
         connection.commit()
-        print("commited")
-
-        logging.info("Data inserted/updated successfully.")
+        
+        inserted = cursor.rowcount
+        skipped = len(rows) - inserted
+        
+        logging.info(f"Inserted: {inserted}, Skipped: {skipped}, Total: {len(rows)}")
+        return True
     except psycopg2.Error as e:
         logging.error(f"Error inserting/updating data: {e}")
         connection.rollback()
+        return False
     finally:
         cursor.close()
     
@@ -100,14 +115,24 @@ connection = create_connection(os.getenv('PSQL_DB'),
                   os.getenv('PSQL_HOST'), 
                   os.getenv('PSQL_PORT'))
 
-logging.basicConfig(level=logging.INFO)
+
 if connection:
-    data = fetch_daily_data()
-    if data:
-        create_table(connection)
-        add_data_query(connection, data)
-        connection.close()
-    else:
-        logging.error("No data fetched")
+    data = fetch_hourly_data()
+    try:
+        if data:
+            create_hourly_table(connection)
+            res = insert_data(connection, data)
+            if res:
+                logging.info("Database update completed successfully.")
+            else:
+                logging.error("Database update failed.")
+        else:
+            logging.error("No data fetched")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+    finally:
+        if connection:
+            connection.close()
+    
 else:
     logging.error("Failed to connect to database")
