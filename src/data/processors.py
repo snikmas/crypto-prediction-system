@@ -6,11 +6,11 @@ import datetime
 from database import create_connection
 import math
 
+# macd, skeweness
 
 # 1. plan: get data from the db 
 # 2. create dataframe and process data
 # for now, main feautres:
-# log returns, violatility, lagged violatiily, volume radio, rsi, atr, bolinger bands, macd, skeweness
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -36,50 +36,80 @@ def load_data_from_db():
 def process_data():
     db_ohlcv_data = load_data_from_db() # is a dataframe
 
+    # log returns, violatility, lagged violatiily, volume radio, rsi, atr, bolinger bands, 
     data = pd.DataFrame()
-    # close t - closet-1
+    # =================== RETURNS CENTER ========================    
+
+
     data["return_1h"] = (db_ohlcv_data["close"] - db_ohlcv_data["close"].shift(1)) / db_ohlcv_data["close"].shift(1)
     data["return_24h"] = (db_ohlcv_data["close"] - db_ohlcv_data["close"].shift(24)) / db_ohlcv_data["close"].shift(24)
     data["return_7d"] = (db_ohlcv_data["close"] - db_ohlcv_data["close"].shift(168)) / db_ohlcv_data["close"].shift(168)
     data["return_30d"] = (db_ohlcv_data["close"] - db_ohlcv_data["close"].shift(720)) / db_ohlcv_data["close"].shift(720)
     
     data["log_return"] = np.log(db_ohlcv_data["close"] / db_ohlcv_data["close"].shift(1))
-    data["volatility_24h"] = (data["return_24h"] / data["return_1h"]).std()
-    data["volatility_7d"] = (data["return_7d"] / data["return_1h"]).std()
-    data["volatility_30d"] = (data["return_30d"] / data["return_1h"]).std()
-    # data["lagged_volatility"] = data[""] ? how to calcualte? for every hour?
-    data["lagged_volatility_24h"] = data["volatility_24h"].shift(1)
-    data["lagged_volatility_7d"] = data["volatility_7d"].shift(1)
-    data["lagged_volatility_30d"] = data["volatility_30d"].shift(1) #/
 
-    data["prknsn_val"] = np.sqrt(np.power(db_ohlcv_data["high"] / db_ohlcv_data["low"], 2) / (4 * math.log(2)))
+    # ===========================================================    
+    # ================ VOLATILITY CENTER ========================
 
-    volume_t_24 = db_ohlcv_data["volume"].shift(24)
-    data["volume_ma_24"] = (volume_t_24 / data["volume"]).mean()
-    data["volume_ratio"] = db_ohlcv_data["volume"] / data["volume_ma_24"]
 
-    # rsi = 100 - 100/(1 + RS) where RS = avg_gain_14 / avg_loss_14
-    # avg gai_14 n = sum of positive / 14
+    volatility_24h = data["log_return"].rolling(window=24).std()
+    volatility_7d = data["log_return"].rolling(window=168).std()
+    volatility_30d = data["log_return"].rolling(window=720).std()
+
+    data["lagged_volatility_24h"] = volatility_24h.shift(1)
+    data["lagged_volatility_7d"] = volatility_7d.shift(1)
+    data["lagged_volatility_30d"] = volatility_30d.shift(1) 
     
-    data["rsi"] = 100 - 100 / (1 + (pd.filter(returns_14d > 0).sum() / pd.filter(returns_14d < 0).sum))
+    # ===========================================================
+    # ================ PARKINSONE CENTER =========================
+
+    data["prknsn_val"] = np.sqrt((np.log(db_ohlcv_data["high"] / db_ohlcv_data["low"]))**2 / (4 * np.log(2)))
 
 
-    # atr_14	EMA(true_range, 14)
-    # true_range	max(high-low, abs(high-close_prev), abs(low-close_prev))
-    # data["atr_14"] ?
-    true_range = pd.max(db_ohlcv_data["high"] - db_ohlcv_data["low"], np.abs(db_ohlcv_data["high"] - db_ohlcv_data["close"].shift(1)))
+    # ================== VOLUME CENTER ==========================
+
+    volume_ma_24 = (db_ohlcv_data["volume"].rolling(window=24).mean()).shift(1) #to avoid bias - shift by 1
+    data["vol_ratio"] = db_ohlcv_data["volume"] / volume_ma_24
+
+    # ===========================================================    
+    # ===================== RSA CENTER ==========================
+    delta = db_ohlcv_data["close"].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+
+    avg_gain = gain.rolling(window=14).mean()
+    avg_loss = loss.rolling(window=14).mean()
+
+    RS = avg_gain / avg_loss
+    data["RSI"] = 100 - (100 / (1 + RS))
 
 
-    # sma_24	mean(close_{t-24:t})
-    # ema_24	EMA(close, 24)
-    sma_24 = (db_ohlcv_data["close"].shift(24) / db_ohlcv_data["close"]).mean()
+    # ===================== ATR CENTER ==========================
+    # true range
+    TR = pd.concat([ 
+        db_ohlcv_data["high"] - db_ohlcv_data["low"],
+        (db_ohlcv_data["high"] - db_ohlcv_data["close"].shift(1)).abs(),
+        (db_ohlcv_data["low"] - db_ohlcv_data["close"].shift(1)).abs()
+    ], axis=1).max(axis=1)
+
+    data["ATR"] = TR.rolling(window=14).mean()
+
+    # ===========================================================    
+    # =============== SMA_24 / EMA_24 CENTER ====================
+    data["SMA_24"] = db_ohlcv_data["close"].rolling(window=24).mean()
+    data["EMA_24"] = db_ohlcv_data["close"].ewm(span=24, adjust=False).mean()
 
     
-    # bb_middle	SMA(close, 20)
-    # bb_upper	bb_middle + 2 * std(close, 20)
-    # bb_lower	bb_middle - 2 * std(close, 20)
-    # bb_width	(bb_upper - bb_lower) / bb_middle
-    # bb_position	(close - bb_lower) / (bb_upper - bb_lower)
+    # ===========================================================    
+    # ============= BOLLINGER BANDS (20d) CENTER ================
+   
+    bb_std = db_ohlcv_data["close"].rolling(window=20).std().shift(1)
+    data["bb_middle"] = db_ohlcv_data["close"].rolling(window=20).mean().shift(1)
+
+    data["bb_upper"] = data["bb_middle"] + 2 * bb_std
+    data["bb_lower"] = data["bb_middle"] - 2 * bb_std
+    data["bb_width"] = (data["bb_upper"] - data["bb_lower"]) / data["bb_middle"]
+    data["bb_position"] = (db_ohlcv_data["close"] - data["bb_lower"]) / (data["bb_upper"] - data["bb_lower"])
 
 
 
