@@ -1,0 +1,40 @@
+# requirements.txt
+# Data
+ccxt==4.2.25                 # Exchange APIs
+pandas
+numpy==1.26.3
+psycopg2-binary==2.9.9       # PostgreSQL
+sqlalchemy==2.0.25
+
+# Features
+ta-lib==0.4.28               # Technical indicators
+pandas-ta==0.3.14b0
+
+# ML
+scikit-learn==1.4.0
+lightgbm==4.3.0
+xgboost==2.0.3              # Alternative model
+optuna==3.5.0               # Hyperparameter tuning
+
+# MLOps
+mlflow==2.10.0
+evidently==0.4.15           # Drift detection
+great-expectations==0.18.8  # Data validation
+
+# API
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# Orchestration
+apache-airflow==2.8.1
+apache-airflow-providers-postgres==5.10.0
+
+# Monitoring
+prometheus-client==0.19.0
+prometheus-fastapi-instrumentator==6.1.0
+
+# Utils
+python-dotenv
+requests==2.31.0
+websocket-client==1.7.0
