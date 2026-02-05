@@ -1,17 +1,28 @@
-# here: connect to the db -> get data from it. do not anything with api / or have to update?
-import requests 
-from constants import COINS 
+# Structure:
+import load_dotenv
+
+env_path = Path(__file__).resolve().parents[2] / 'config' / '.env'
+load_dotenv(dotenv_path=env_path)
 
 
-data = []
-for coin in COINS:
+def get_db_connection():
+    """
+    - Load .env from config/.env
+    - Connect using psycopg2
+    - Return connection object
+    - Handle connection errors (log + raise)
+    """
+    pass
 
-
-
-response = requests.get(
-    "https://min-api.cryptocompare.com/data/v2/histohour",
-    params={"fsym":"BTC","tsym":"USD","limit":"10","api_key":"ea6986b1cbad172494c644a4c88e2c2d6f9cbcb7a0b125dfd4cb8d1451b473a3"},
-    headers={"Content-type":"application/json; charset=UTF-8"}
-)
-
-json_response = response.json()
+def insert_hourly_data(coins_data: dict):
+    """
+    - Get connection
+    - For each coin in coins_data:
+        - Extract list of hourly records
+        - Transform to list of tuples: (symbol, timestamp, open, high, low, close, volume)
+        - Use executemany with ON CONFLICT UPDATE query
+    - Commit transaction
+    - Log success/errors per coin
+    - Close connection in finally block
+    """
+    pass

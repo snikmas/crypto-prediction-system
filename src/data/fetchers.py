@@ -1,4 +1,3 @@
-# get data from the api: connect to it, get data, put to the db
 import requests
 import os
 import logging
@@ -51,9 +50,6 @@ def fetch_coin_data(coin: str) -> dict | None:
         headers=headers,
         timeout=10,
     )
-    # return
-    # raise for HTTP errors and return the data list
-    res.raise_for_status()
     json_res = res.json()
     res = json_res["Data"]["Data"]
 
@@ -78,13 +74,11 @@ def fetch_all_coins():
         res = ""
         try:
             res = fetch_coin_data(coin)
-        except Exception as e:
-            logging.info(f"Error during fetching {coin}: {e}")
-            res = None
-        finally:
             coins_data[coin] = res
-            print(f"this is coints data: \n\n{coins_data}\n\n and this type: {type(coins_data)}")
-    return coins_data
+        except Exception as e:
+            logger.error(f"Failed {coin}: {e}")
+            coins_data[coin] = None
+    # return coins_data # no need, this is a global var
 
 
 
