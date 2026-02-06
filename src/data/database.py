@@ -89,7 +89,6 @@ def insert_hourly_data(coins_data: dict):
 
     pass
 
-
 # 3. get data
 if __name__ == "__main__":
     data = fetchers.scheduled_job()
