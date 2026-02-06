@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from pathlib import Path
 from constants import COINS
 
-# VIBE-CODING STEPS
 # 1. load dotenv (explicit path to project config/.env)
 env_path = Path(__file__).resolve().parents[2] / 'config' / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -86,7 +85,8 @@ def fetch_all_coins():
 def scheduled_job():
     logger.info("Starting scheduled fetch at 1:00 AM")
     fetch_all_coins()
-    logger.info(f"Fetch complete. Data: {list(coins_data.keys())}")
+    logger.info(f"Fetch completd")
+    return coins_data
 
 
 
