@@ -6,6 +6,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 import logging
 from pathlib import Path
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # 1. Load data
 def load_processed_data():
@@ -23,7 +25,10 @@ def load_processed_data():
 
     logging.info(f"The last created file: {latest_file}")
 
-    df = pd.read_parquet(latest_file)
+    
+
+    print(latest_file)
+    df = pd.read_parquet(latest_file, engine='pyarrow')
     
     return df
 
@@ -42,8 +47,8 @@ def split_data(df, train_ratio=0.6, val_ratio=0.2):
     n = len(df)
 
     # calculate it. what we do: frist N rows for training; second N rows for validation, third N orws to test
-    train_end_idx = int(n * train_ratio) # 0.6 from 7000
-    val_end_idx = int(n * (train_ratio + val_ratio)) # 0.8 from 7000
+    train_end_idx = int(n * train_ratio) - 1 # 0.6 from 7000
+    val_end_idx = int(n * (train_ratio + val_ratio)) - 1 # 0.8 from 7000
 
     train_df = df.iloc[0, train_end_idx]
     val_df = df.iloc[train_end_idx, val_end_idx]
@@ -76,8 +81,11 @@ def train_model(X_train, y_train):
     - Fit on training data
     - Return trained model
     """
-    
-    pass
+    forestTree = RandomForestClassifier(random_state=0)
+    # now need regression type: 1 or 0
+    forestTree.git(X_train, y_train)
+
+    return forestTree
 
 # 5. Evaluate model
 def evaluate_model(model, X, y, dataset_name="validation"):
@@ -88,7 +96,20 @@ def evaluate_model(model, X, y, dataset_name="validation"):
     - Print confusion_matrix
     - Return predictions
     """
-    pass
+    predictions = model.predict(X, y)
+    logging.info(f"Classification Report:\n{classification_report(y, predictions)}")
+
+    logging.info(f'\nconfusion matrix:')
+    cm = confusion_matrix(y, predictions)
+    plt.figure(figsize=(10,10))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    plt.xlabel("Predicted Labels")
+    plt.ylabel("True Labels")
+    plt.title("Confusion Matrix")
+    plt.show()
+
+    return predictions
+
 
 if __name__ == "__main__":
     # Load data
@@ -98,9 +119,11 @@ if __name__ == "__main__":
     train_df, val_df, test_df = split_data(df)
     
     # Train model 1: Volatility regime
-    X_val, y_val = prepare_features_targets(train_df, 'target_vol_regime')
-    # X_val, y_val = prepare_features_targets(val_df, 'target_vol_regime') ?
+    X_train, y_train = prepare_features_targets(train_df, 'target_vol_regime')
+    X_val, y_val = prepare_features_targets(val_df, 'target_vol_regime')
     
+
+
     model_vol = train_model(X_train, y_train)
     evaluate_model(model_vol, X_val, y_val, "validation")
     
