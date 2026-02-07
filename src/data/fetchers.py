@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.blocking import BlockingScheduler
 from dotenv import load_dotenv
 from pathlib import Path
-from constants import COINS
+from src.data.constants import COINS
 
 # 1. load dotenv (explicit path to project config/.env)
 env_path = Path(__file__).resolve().parents[2] / 'config' / '.env'

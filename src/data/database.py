@@ -5,12 +5,12 @@ import logging
 from pathlib import Path
 import sys
 import os
-from setup_db import setup_database
+# from src.data.setup_db import setup_database
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import fetchers
+from src.data import fetchers
 from utils.utils import mapping_coin_data
 
 # 1. Load dotenv
