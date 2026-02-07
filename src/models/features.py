@@ -14,6 +14,7 @@ def load_data_from_db(symbol: str, limit: int = None) -> pd.DataFrame:
     - Optionally limit rows (for testing)
     """
     conn = get_db_connection()
+    query = ''
     if limit is not None:
         query = '''
             SELECT * FROM hourly_ohlcv 
@@ -31,8 +32,9 @@ def load_data_from_db(symbol: str, limit: int = None) -> pd.DataFrame:
         params = (symbol,)
     
     df = pd.DataFrame()
+    
     try:
-        df = pd.read_sql(get_data_query, conn, params=(symbol, limit))
+        df = pd.read_sql(query, conn, params=(symbol, limit))
         return df
     except Exception as e:
         logging.error(f"Error during load_data_from_db: {e}")
@@ -48,12 +50,17 @@ def calculate_basic_returns(df: pd.DataFrame) -> pd.DataFrame:
     - Calculate return_24h (24-hour percentage change)
     - Calculate return_7d (168-hour percentage change)
     - Calculate log_return (log of price ratio)
-    
+
     Hints:
     - Use df['close'].pct_change(periods)
     - Use np.log(df['close'] / df['close'].shift(1))
     """
-    pass
+
+    df["return_1h"] = df['close'].pct_change(1)
+    df['return_24h'] = df['close'].pct_change(24)
+    df['return_7d'] = df['close'].pct_change(168)
+    df['log_return'] = np.log(df['close'] / df['close'].shift(1))
+    return df # do we really need to return df? did it not change the df in the place?
 
 
 def calculate_volatility(df: pd.DataFrame) -> pd.DataFrame:
@@ -68,20 +75,42 @@ def calculate_volatility(df: pd.DataFrame) -> pd.DataFrame:
     - Use df['return_1h'].rolling(window).std()
     - Use .shift(24) for lag
     """
-    pass
+
+    df['volatility_24h'] = df['return_24h'].rolling(24).std()
+    df['volatility_7d'] = df['return_7d'].rolling(168).std()
+    return_30d = df['close'].pct_change(720)
+    df['volatility_30d'] = return_30d.rolling(720).std()
+    df['volatility_lag_24h'] = df['volatility_24h'].shift(24) # do we need rolling?
+    return df
 
 
 def calculate_volume_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     TODO:
-    - Calculate volume_ma_24h (24-hour rolling mean of volume)
+    how much people usually trade in the last 24hours? compare now vs usual
+    example: usually you sell 10cups of lemode/hour. but today you sold 50. wtf? smthg is happening
+    crypto volume: how much coins were traded. and MA - moving average
+    we can know cur volume = 1000. is that big? idk, so
+
     - Calculate volume_ratio (current volume / volume_ma_24h)
+    
+    if +-1 - ok; if >1.5 - smthg happened, many people tradindg
+    if >3.0 - wth something BIG is happening
+    <0.5 everyone asleep
+    why do we need that? small push - small move. big push - big move. price moves need force
+    force = move. no volume - price lies; high - price tells the trurh.
+    price = directoin, volume = strength
+
+    - Calculate volume_ma_24h (24-hour rolling mean of volume)
+    - Division: df['volume'] / df['volume_ma_24h']
     
     Hints:
     - Use df['volume'].rolling(24).mean()
-    - Division: df['volume'] / df['volume_ma_24h']
     """
-    pass
+    df['volume_ma_24h'] = df['volume'].rolling(24).mean()
+    df['volume_ratio'] = df['volume'] / df['volume_ma_24h'] # is that correct?
+
+    return df
 
 
 def calculate_ma_distance(df: pd.DataFrame) -> pd.DataFrame:
@@ -136,6 +165,7 @@ def create_targets(df: pd.DataFrame) -> pd.DataFrame:
 if __name__ == "__main__":
     # Test your functions
     # limit - data hours
+    df = '' # i feel if we d not do it, df will be only in the loop
     for coin in COINS:
         df = load_data_from_db(coin, limit=1000)
     
