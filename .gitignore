@@ -1,4 +1,5 @@
 myvenv/
 text.md
 config/.env
-__pycache__
+__pycache__/
+*.py[cod]
