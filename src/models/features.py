@@ -3,6 +3,22 @@ import numpy as np
 from src.data.database import get_db_connection
 from src.data.constants import COINS
 import logging
+from pathlib import Path
+from datetime import datetime
+def save_df(df):
+    proj_root = Path(__file__).resolve().parents[2]
+    processed_dir_path = proj_root / "data" / "processed"
+    processed_dir_path.mkdir(parents=True, exist_ok=True)
+    
+    time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S") #or get in 
+    parquet_file = processed_dir_path / f"features-{time}.parquet"
+    df.to_parquet(parquet_file, index=False, compression='snappy')
+    
+    parquet_file = Path(parquet_file)
+    file_size = parquet_file.stat().st_size / 1024
+    logging.info(f"saved to: {parquet_file}")
+    logging.info(f"file_size: {file_size:1f} KB")
+
 
 def load_data_from_db(symbol: str, limit: int = None) -> pd.DataFrame:
     """
@@ -237,35 +253,39 @@ if __name__ == "__main__":
         all_data.append(coin_df)
 
     df = pd.concat(all_data, ignore_index=True)
+    # save this 
+    save_df(df)
 
-    print(f"\n\nTotal rows: {len(df)}") 
-    print(f"Coins: {df['symbol'].unique()}") 
-    print(f"Columns: {df.columns.tolist()}") 
-    print(f"Summary: \n{df.describe()}") 
-    print("\nNaN counts per column:")
-    print(df.isnull().sum())
-    print(f"df head(20):\n{df.head(20)}") 
+
+# FOR DEVELOPMENT CHECKING
+#     print(f"\n\nTotal rows: {len(df)}") 
+#     print(f"Coins: {df['symbol'].unique()}") 
+#     print(f"Columns: {df.columns.tolist()}") 
+#     print(f"Summary: \n{df.describe()}") 
+#     print("\nNaN counts per column:")
+#     print(df.isnull().sum())
+#     print(f"df head(20):\n{df.head(20)}") 
     
     
-    # 1. NaN distribution
-print("\nNaN counts:")
-print(df.isnull().sum())
+#     # 1. NaN distribution
+# print("\nNaN counts:")
+# print(df.isnull().sum())
 
-# 2. Check usable samples (rows without NaN in key features)
-usable = df.dropna(subset=['volatility_30d', 'target_vol_regime', 'target_spike'])
-print(f"\nUsable samples (after warmup): {len(usable)}")
-print(f"Per coin: {len(usable) / 7:.0f} rows")
+# # 2. Check usable samples (rows without NaN in key features)
+# usable = df.dropna(subset=['volatility_30d', 'target_vol_regime', 'target_spike'])
+# print(f"\nUsable samples (after warmup): {len(usable)}")
+# print(f"Per coin: {len(usable) / 7:.0f} rows")
 
-# 3. Target balance
-print(f"\nTarget distribution:")
-print(f"High vol regime: {usable['target_vol_regime'].mean():.1%}")
-print(f"Spikes: {usable['target_spike'].mean():.1%}")
+# # 3. Target balance
+# print(f"\nTarget distribution:")
+# print(f"High vol regime: {usable['target_vol_regime'].mean():.1%}")
+# print(f"Spikes: {usable['target_spike'].mean():.1%}")
 
-# 4. Check one coin's data
-btc = df[df['symbol'] == 'BTC'].copy()
-print(f"\nBTC data check:")
-print(f"Total rows: {len(btc)}")
-print(f"First usable row (no NaN in volatility_30d): {btc['volatility_30d'].first_valid_index()}")
+# # 4. Check one coin's data
+# btc = df[df['symbol'] == 'BTC'].copy()
+# print(f"\nBTC data check:")
+# print(f"Total rows: {len(btc)}")
+# print(f"First usable row (no NaN in volatility_30d): {btc['volatility_30d'].first_valid_index()}")
     
     
     

@@ -3,3 +3,5 @@ text.md
 config/.env
 __pycache__/
 *.py[cod]
+notes.txt
+*.parquet
