@@ -107,11 +107,19 @@ def train_model(X_train, y_train):
     """
     logging.info(X_train)
     logging.info(y_train)
-    forestTree = RandomForestClassifier(random_state=0, class_weight="balanced")
+    # forestTree = RandomForestClassifier(random_state=0, class_weight="balanced")
     # now need regression type: 1 or 0
-    forestTree.fit(X_train, y_train)
+    # forestTree.fit(X_train, y_train)
+    from xgboost import XGBClassifier
 
-    return forestTree
+    model = XGBClassifier(
+        random_state=0,
+        scale_pos_weight=len(y_train[y_train==0]) / len(y_train[y_train==1])  # Handle imbalance
+    )
+
+    model.fit(X_train, y_train)
+
+    return model
 
 # 5. Evaluate model
 def evaluate_model(model, X, y, dataset_name="validation"):
@@ -127,7 +135,7 @@ def evaluate_model(model, X, y, dataset_name="validation"):
 
     # TEST TO CHANGE THRESHOLD. STILL DOES NOT WORK
     y_proba = model.predict_proba(X)[:, 1]
-    threshold = 0.3
+    threshold = 0.2
     y_pred = (y_proba > threshold).astype(int)
 
     predictions = y_pred
@@ -146,6 +154,9 @@ def evaluate_model(model, X, y, dataset_name="validation"):
     # plt.ylabel("True Labels")
     # plt.title("Confusion Matrix")
     # plt.show()
+
+    
+
 
     return predictions
 
@@ -172,7 +183,7 @@ if __name__ == "__main__":
     
 
     #x is empty?
-    # print(f"x train: {X_train}")
+    # print(f"x train: {X_train}") # for volatility XBOOT is okay 
     model_vol = train_model(X_train, y_train)
     print("Results for Volatility:")
     evaluate_model(model_vol, X_val, y_val, "validation")
@@ -188,6 +199,7 @@ if __name__ == "__main__":
     print(importance_df.head(10))
     # impossible predict
     # Train model 2: Spike detector
+    # has some problems
     # (same process, different target)
     X_train, y_train = prepare_features_targets(train_df, "target_spike")
     X_val, y_val = prepare_features_targets(val_df, "target_spike")
