@@ -91,5 +91,6 @@ def insert_hourly_data(coins_data: dict):
 
 # 3. get data
 if __name__ == "__main__":
-    data = fetchers.scheduled_job()
+    data = fetchers.fetch_all_coins()
+    # data = fetchers.scheduled_job()
     insert_hourly_data(data)

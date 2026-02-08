@@ -125,6 +125,12 @@ def evaluate_model(model, X, y, dataset_name="validation"):
     predictions = model.predict(X)
     logging.info(f"Classification Report:\n{classification_report(y, predictions)}")
 
+    # TEST TO CHANGE THRESHOLD. STILL DOES NOT WORK
+    y_proba = model.predict_proba(X)[:, 1]
+    threshold = 0.3
+    y_pred = (y_proba > threshold).astype(int)
+
+    predictions = y_pred
     logging.info(f'\nconfusion matrix:')
     cm = confusion_matrix(y, predictions)
     print(cm)
@@ -170,7 +176,17 @@ if __name__ == "__main__":
     model_vol = train_model(X_train, y_train)
     print("Results for Volatility:")
     evaluate_model(model_vol, X_val, y_val, "validation")
-    
+
+    # After training volatility model:
+    importances = model_vol.feature_importances_
+    feature_names = X_train.columns
+    importance_df = pd.DataFrame({
+        'feature': feature_names,
+        'importance': importances
+    }).sort_values('importance', ascending=False)
+
+    print(importance_df.head(10))
+    # impossible predict
     # Train model 2: Spike detector
     # (same process, different target)
     X_train, y_train = prepare_features_targets(train_df, "target_spike")

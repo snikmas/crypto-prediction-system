@@ -45,7 +45,7 @@ def fetch_coin_data(coin: str) -> dict | None:
 
     res = requests.get(
         URL,
-        params={"fsym": coin, "tsym": "USD", "limit": "24", "toTs": cur_timestamp},
+        params={"fsym": coin, "tsym": "USD", "limit": "1000", "toTs": cur_timestamp},
         headers=headers,
         timeout=10,
     )
@@ -77,7 +77,7 @@ def fetch_all_coins():
         except Exception as e:
             logger.error(f"Failed {coin}: {e}")
             coins_data[coin] = None
-    # return coins_data # no need, this is a global var
+    return coins_data 
 
 
 
@@ -94,7 +94,9 @@ if __name__ == "__main__":
     # APScheduler: runs in-process, simple, no extra infrastructure
     # Why: You don't need distributed tasks, just one script running daily
     # Alternatives: cron (OS-level, harder to debug), Celery (overkill for this)
+    # fetch_all_coins()
     scheduled_job()    
+
     # scheduler = BlockingScheduler()
     # scheduler.add_job(scheduled_job, 'cron', hour=1, minute=0)  # 1:00 AM daily
     

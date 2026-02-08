@@ -241,7 +241,7 @@ if __name__ == "__main__":
     # limit - data hours
     all_data = [] # i feel if we d not do it, df will be only in the loop
     for coin in COINS:
-        coin_df = load_data_from_db(coin, limit=1000)
+        coin_df = load_data_from_db(coin, limit=50000)
 
         coin_df = calculate_basic_returns(coin_df)
         coin_df = calculate_volatility(coin_df)
