@@ -5,9 +5,7 @@ import logging
 from pathlib import Path
 import sys
 import os
-# from src.data.setup_db import setup_database
 
-# Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data import fetchers
@@ -23,12 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_db_connection():
-    """
-    - Load .env from config/.env
-    - Connect using psycopg2
-    - Return connection object
-    - Handle connection errors (log + raise)
-    """
+   
     conn = psycopg2.connect(
         database = os.getenv("PSQL_DB"),
         user = os.getenv("PSQL_USER"),
@@ -41,26 +34,13 @@ def get_db_connection():
 
 def insert_hourly_data(coins_data: dict):
 
-    """
-    - Get connection
-    - For each coin in coins_data:
-        - Extract list of hourly records
-        - Transform to list of tuples: (symbol, timestamp, high, low, volume, close)
-        - Use executemany with ON CONFLICT UPDATE query
-    - Commit transaction
-    - Log success/errors per coin
-    - Close connection in finally block
-    """
-
     if coins_data is None:
         logger.error("Coins_data is None. Nothing to insert")
         return
 
     conn = get_db_connection()
     cursor = conn.cursor() 
-    # cursor perfoms db operations
 
-    # setup_database(conn, cursor) # no need for it. run it before running db 
     insert_query = """
         INSERT INTO hourly_ohlcv (symbol, timestamp, open, high, low, close, volume)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
