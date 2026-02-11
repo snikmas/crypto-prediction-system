@@ -8,6 +8,8 @@ import logging
 from pathlib import Path
 import seaborn as sns
 import matplotlib.pyplot as plt
+import joblib
+import json
 
 
 # 1. Load data
@@ -135,7 +137,7 @@ def evaluate_model(model, X, y, dataset_name="validation"):
 
     # TEST TO CHANGE THRESHOLD. STILL DOES NOT WORK
     y_proba = model.predict_proba(X)[:, 1]
-    threshold = 0.2
+    threshold = 0.5
     y_pred = (y_proba > threshold).astype(int)
 
     predictions = y_pred
@@ -148,17 +150,62 @@ def evaluate_model(model, X, y, dataset_name="validation"):
         Precision score: {precision_score(y, predictions)}
         F1 score:        {f1_score(y, predictions)}
         ''')    
-    # plt.figure(figsize=(10,10))
-    # sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-    # plt.xlabel("Predicted Labels")
-    # plt.ylabel("True Labels")
-    # plt.title("Confusion Matrix")
-    # plt.show()
-
     
-
-
+    
     return predictions
+
+
+
+def plot_threshold_tradeof(model_vol, X_val, y_val, target):
+     # 1. Create threshold array
+    thresholds = []
+    thresholds = np.arange(0.1, 0.9, 0.05)
+    
+    # 2. Initialize empty lists
+    recalls = []
+    precisions = []
+    f1s = []
+    
+    # 3. Loop through thresholds
+    for thresh in thresholds:
+        # Get probabilities
+        y_proba = model_vol.predict_proba(X_val)[:, 1]
+        
+        # Apply threshold   
+        y_pred = (y_proba > thresh).astype(int)
+        
+        # Calculate metrics
+        recall = recall_score(y_val, y_pred)
+        precision = precision_score(y_val, y_pred)
+        f1 = f1_score(y_val, y_pred)
+        
+        # Append to lists
+        recalls.append(recall)
+        precisions.append(precision)
+        f1s.append(f1)
+    
+    # 4. Create plot
+    plt.figure(figsize=(10, 6))
+    
+    # Plot lines
+    plt.plot(thresholds, recalls, label="Recall", marker='o', color='blue')  # Recall
+    plt.plot(thresholds, precisions, label='Precicison', marker='o', color='red')  # Precision
+    plt.plot(thresholds, f1s, label='F1', marker='o', color='green')  # F1
+
+    # Add vertical line at selected threshold
+    plt.axvline(x=0.3, color='red', linestyle='--', label='Selected (0.3)')
+    
+    # Add labels and formatting
+    plt.xlabel('Threshold')
+    plt.ylabel('Score')
+    plt.title('Threshold vs Metrics - Spike Detection')
+    plt.legend()
+    plt.grid(True)
+    
+    # Save
+    plt.savefig('threshold_analysis.png')
+    plt.show()
+
 
 
 if __name__ == "__main__":
@@ -188,19 +235,9 @@ if __name__ == "__main__":
     print("Results for Volatility:")
     evaluate_model(model_vol, X_val, y_val, "validation")
 
-    # After training volatility model:
-    importances = model_vol.feature_importances_
-    feature_names = X_train.columns
-    importance_df = pd.DataFrame({
-        'feature': feature_names,
-        'importance': importances
-    }).sort_values('importance', ascending=False)
-
-    print(importance_df.head(10))
-    # impossible predict
+    
+    plot_threshold_tradeof(model_vol, X_val, y_val, "target_vol_regime")
     # Train model 2: Spike detector
-    # has some problems
-    # (same process, different target)
     X_train, y_train = prepare_features_targets(train_df, "target_spike")
     X_val, y_val = prepare_features_targets(val_df, "target_spike")
     
@@ -209,15 +246,50 @@ if __name__ == "__main__":
     evaluate_model(model_vol, X_val, y_val)
 
 
-    # first issue: cuz we only have a few spikes, this ml is lazy: it just tells us that there're no spikes. and cuz there're only a few spikes, it will be true for 90%
-    # but he doesn't predict. just chose the easiest path. so its always saying NO SPIKE and cuz there're 90/100 cases no spike - it will be ture. but he wont predict reall spikes
+    plot_threshold_tradeof(model_vol, X_val, y_val, "target_spike")
 
-    # out ml model for 
+    # final evaluation on test set
+    print('\n' + '=' * 50)
+    print("Final Test Set Evaluation")
+    print('=' * 50)
+
+    # volatility model
+    X_test_vol, y_test_vol = prepare_features_targets(test_df, 'target_vol_regime')
+    print('\n==== Volatility Model (Test Set, Threshold 0.5) ====')
+    y_proba = model_vol.predict_proba(X_test_vol)[:, 1]
+    y_pred = (y_proba > 0.5).astype(int)
+    print(confusion_matrix(y_test_vol, y_pred))
+    print(f"Recall: {recall_score(y_test_vol, y_pred):.2%}")
+    print(f"Precision: {precision_score(y_test_vol, y_pred):.2%}")
+    print(f"F1: {f1_score(y_test_vol, y_pred):.2%}")
 
 
-    # our data is Inbalanced: there're only a few neagive SPIKES. but now ml use more accuracy parameter: correct predict / total. but FN is much worse
-    # here we should use  recall: false negatives are costly 
-    # recall: TP / TP + FN. and for not its.. 0%
-    # so frisly have to see class distribtuion
+    # spike model
+    print("\n=== Spike Model (Test Set, Threshold 0.3) ===")
+    X_test_spike, y_test_spike = prepare_features_targets(test_df, 'target_spike')
+    y_proba = model_vol.predict_proba(X_test_spike)[:, 1]
+    y_pred = (y_proba > 0.3).astype(int)
+    print(confusion_matrix(y_test_spike, y_pred))
+    print(f"Recall: {recall_score(y_test_spike, y_pred):.2%}")
+    print(f"Precision: {precision_score(y_test_spike, y_pred):.2%}")
+    print(f"F1: {f1_score(y_test_spike, y_pred):.2%}")
 
-    # solving: check how many spike hours, how many normal ohurs
+
+    # saving the model
+    models_dir = Path(__file__).resolve().parents[2] / 'models'
+    models_dir.mkdir(exist_ok=True)
+
+    joblib.dump(model_vol, models_dir / 'volatility_xgb.pkl')
+    joblib.dump(model_vol, models_dir / 'spike_xgb.pkl')
+
+    config = {
+        'volatility_threshold': 0.5,
+        'spike_threshold':0.3,
+        'features': X_train.columns.tolist(),
+        'model_type': 'XGBoost',
+        'training_date': str(pd.Timestamp.now())
+    }
+
+    with open(models_dir / 'config.json', 'w') as f:
+        json.dump(config, f, indent=2)
+    print(f'\n\n✓ Models saved to {models_dir}')

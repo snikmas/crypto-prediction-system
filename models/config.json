@@ -1,0 +1,28 @@
+{
+  "volatility_threshold": 0.5,
+  "spike_threshold": 0.3,
+  "features": [
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "return_1h",
+    "return_24h",
+    "return_7d",
+    "log_return",
+    "volatility_24h",
+    "volatility_7d",
+    "volatility_30d",
+    "volatility_lag_24h",
+    "volume_ma_24h",
+    "volume_ratio",
+    "ma_50",
+    "distance_ma_50",
+    "hour",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "model_type": "XGBoost",
+  "training_date": "2026-02-11 15:57:16.193589"
+}
