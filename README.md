@@ -1,72 +1,68 @@
 # Crypto Price Spike Detection System
 
-ML-based early warning system for cryptocurrency price volatility and spikes.
+ML-based early warning system for cryptocurrency price volatility and spikes. Uses hourly OHLCV data to predict high-volatility periods and extreme price movements.
 
-## Problem Statement
-Predict high-volatility periods and extreme price spikes in cryptocurrency markets to enable proactive risk management.
+## Setup
+
+```bash
+python -m venv myvenv
+source myvenv/bin/activate
+pip install -r requirements.txt
+```
+
+Copy the example env file and fill in your credentials:
+```bash
+cp config/.env.example config/.env
+```
+
+You need a PostgreSQL database and a [CoinDesk API key](https://developers.coindesk.com).
+
+## Usage
+
+```bash
+# 1. Create the database table (run once)
+python -m src.data.setup_db
+
+# 2. Fetch hourly OHLCV data from CoinDesk and store in PostgreSQL
+python -m src.data.database
+
+# 3. Generate features from DB data (saves to data/processed/)
+python -m src.models.features
+
+# 4. Train models (saves to models/)
+python -m src.models.train
+```
 
 ## Data
-- Source: CryptoCompare API
-- Coins: BTC, ETH, USDT, BNB, DOGE, ADA, SOL
-- Timeframe: Hourly OHLCV data (66,682 samples after preprocessing)
-- Features: 20 technical indicators (volatility, momentum, volume, time-based)
+
+- **Source:** CoinDesk API (hourly OHLCV)
+- **Coins:** BTC, ETH, USDT, BNB, DOGE, ADA, SOL
+- **Samples:** ~66,000 after preprocessing
+- **Features:** 20 technical indicators — returns (1h, 24h, 7d, log), volatility (24h, 7d, 30d + lag), volume ratio, MA(50) distance, cyclical hour encoding
 
 ## Models
 
-### Volatility Predictor
-- Algorithm: XGBoost with class balancing
-- Target: Top 25% volatile hours
-- **Performance (Test Set, Threshold 0.5):**
-  - Recall: 35%
-  - Precision: 38%
-  - F1: 36%
+Both models use XGBoost with `scale_pos_weight` for class imbalance. Data is split chronologically (60/20/20 train/val/test) to avoid time-series leakage.
+
+### Volatility Regime Predictor
+- **Target:** Next hour in top 25% volatile hours (rolling 7-day window)
+- **Threshold:** 0.5
+- **Test performance:** Recall 35%, Precision 38%, F1 36%
 
 ### Spike Detector
-- Algorithm: XGBoost with class balancing  
-- Target: Top 10% extreme price moves
-- **Performance (Test Set, Threshold 0.3):**
-  - Recall: 67%
-  - Precision: 17%
-  - F1: 27%
-
-## Key Insights
-- Threshold 0.3 chosen for spike detection due to asymmetric costs (missing a spike is costlier than false alarm)
-- Visualization shows clear recall-precision trade-off
-- Low precision (XX%) indicates need for additional features (news sentiment, order flow)
+- **Target:** Next hour in top 10% extreme price moves (rolling 30-day window)
+- **Threshold:** 0.3 (tuned for recall — missing a spike is costlier than a false alarm)
+- **Test performance:** Recall 67%, Precision 17%, F1 27%
 
 ## Limitations
-- Technical indicators alone insufficient for predicting news-driven spikes
-- High false positive rate (XX%)
-- Not recommended for standalone automated trading
 
-## Future Improvements
-- Add news sentiment analysis
-- Incorporate order book depth data
-- Ensemble with additional models
+- Technical indicators alone are insufficient for predicting news-driven spikes
+- High false positive rate on spike detection due to low threshold
+- Not suitable for standalone automated trading
+
+## Future Work
+
+- News sentiment analysis features
+- Order book depth data
+- Model ensembling
 - Real-time deployment with monitoring
-
-## Project Structure
-```
-crypto-prediction-system/
-├── data/
-│   └── processed/          # Feature-engineered datasets
-├── models/                 # Trained models + config
-├── src/
-│   ├── data/               # Data collection & processing
-│   ├── models/             # Training & evaluation
-│   └── utils/              # Utility functions
-└── threshold_analysis_*.png  # Optimization charts
-```
-
-## Usage
-```bash
-# Train models
-python -m src.models.train
-
-# Models saved to models/ directory
-# Load with: joblib.load('models/spike_xgb.pkl')
-```
-
-## Requirements
-- Python 3.10+
-- XGBoost, pandas, scikit-learn, matplotlib
